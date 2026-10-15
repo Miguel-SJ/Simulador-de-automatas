@@ -80,9 +80,10 @@ def obtener_expresion_regular(afd):
                     W[i][j] = _union(W[i][j], camino)
                     pasos.append(f"  R({i}->{j}) = {W[i][j]}")
 
+
+
     er_final = W[S][F]
     if er_final == "Ø":
-        er_final = ""
-    er_final = er_final.replace("λ", "")
+        er_final = "Ø"
 
     return er_final, pasos

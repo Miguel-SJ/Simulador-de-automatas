@@ -67,11 +67,41 @@ class EditorPanel(tk.Frame):
         if seleccion:
             self.list_trans.delete(seleccion)
 
+    def _sincronizar_simbolos_transiciones(self, alfabeto):
+        """
+        Si el usuario cambió el alfabeto en la caja de texto (ej. de 'a,b' a 'x,y'),
+        actualiza automáticamente los símbolos de las transiciones en la lista.
+        """
+        items = list(self.list_trans.get(0, tk.END))
+        if not items or not alfabeto:
+            return
+
+        simbolos_en_lista = []
+        for item in items:
+            sim = item.split(" --(")[1].split(")--> ")[0]
+            if sim not in simbolos_en_lista:
+                simbolos_en_lista.append(sim)
+
+        # Si algún símbolo de la lista ya no coincide con el nuevo alfabeto, los mapeamos en orden
+        if any(s not in alfabeto for s in simbolos_en_lista) and len(simbolos_en_lista) <= len(alfabeto):
+            mapeo = {sim_viejo: alfabeto[i] for i, sim_viejo in enumerate(simbolos_en_lista)}
+            self.list_trans.delete(0, tk.END)
+            for item in items:
+                partes = item.split(" --(")
+                origen = partes[0]
+                sim_viejo = partes[1].split(")--> ")[0]
+                destino = partes[1].split(")--> ")[1]
+                sim_nuevo = mapeo.get(sim_viejo, sim_viejo)
+                self.list_trans.insert(tk.END, f"{origen} --({sim_nuevo})--> {destino}")
+
     def obtener_modelo_afnd(self):
         estados = [s.strip() for s in self.ent_estados.get().split(",") if s.strip()]
         alfabeto = [s.strip() for s in self.ent_alfabeto.get().split(",") if s.strip()]
         inicial = self.ent_inicial.get().strip()
         finales = [s.strip() for s in self.ent_finales.get().split(",") if s.strip()]
+
+        # Sincronizar transiciones si el usuario modificó el alfabeto manualmente
+        self._sincronizar_simbolos_transiciones(alfabeto)
 
         transiciones = {}
         for item in self.list_trans.get(0, tk.END):
@@ -105,10 +135,22 @@ class EditorPanel(tk.Frame):
             messagebox.showerror("Error de Validación", str(e))
 
     def cargar_ejemplo(self):
+        # Leer el alfabeto que el usuario haya escrito (o usar a,b por defecto si está vacío)
+        alfabeto_usuario = [s.strip() for s in self.ent_alfabeto.get().split(",") if s.strip()]
+        
+        if len(alfabeto_usuario) >= 2:
+            sim1, sim2 = alfabeto_usuario[0], alfabeto_usuario[1]
+        elif len(alfabeto_usuario) == 1:
+            sim1 = sim2 = alfabeto_usuario[0]
+        else:
+            sim1, sim2 = "a", "b"
+            self.ent_alfabeto.delete(0, tk.END)
+            self.ent_alfabeto.insert(0, "a,b")
+
         self.ent_estados.delete(0, tk.END); self.ent_estados.insert(0, "q0,q1,q2")
-        self.ent_alfabeto.delete(0, tk.END); self.ent_alfabeto.insert(0, "a,b")
         self.ent_inicial.delete(0, tk.END); self.ent_inicial.insert(0, "q0")
         self.ent_finales.delete(0, tk.END); self.ent_finales.insert(0, "q2")
+        
         self.list_trans.delete(0, tk.END)
-        for t in ["q0 --(a)--> q0", "q0 --(a)--> q1", "q1 --(b)--> q2"]:
+        for t in [f"q0 --({sim1})--> q0", f"q0 --({sim1})--> q1", f"q1 --({sim2})--> q2"]:
             self.list_trans.insert(tk.END, t)
